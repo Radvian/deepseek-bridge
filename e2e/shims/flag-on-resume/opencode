@@ -1,0 +1,12 @@
+#!/bin/bash
+# A fake opencode: the first call claims it is done and does nothing; a continued call (-s) creates ok.flag.
+cat > /dev/null
+resumed=no; for a in "$@"; do [ "$a" = "-s" ] && resumed=yes; done
+printf '{"type":"step_start","sessionID":"ses_fake_e2e","part":{}}\n'
+if [ "$resumed" = yes ]; then
+  touch ok.flag
+  printf '{"type":"text","sessionID":"ses_fake_e2e","part":{"text":"DONE: created ok.flag"}}\n'
+else
+  printf '{"type":"text","sessionID":"ses_fake_e2e","part":{"text":"DONE: I think everything is fine."}}\n'
+fi
+printf '{"type":"step_finish","sessionID":"ses_fake_e2e","part":{"reason":"stop","tokens":{"input":1,"output":1},"cost":0}}\n'

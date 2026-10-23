@@ -1,0 +1,5 @@
+#!/bin/bash
+# The real opencode, except that `run` writes nothing to stdout: output that never reaches the bridge.
+REAL="${REAL_OPENCODE:-$HOME/.opencode/bin/opencode}"
+if [ "$1" = run ]; then exec "$REAL" "$@" > /dev/null; fi
+exec "$REAL" "$@"

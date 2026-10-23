@@ -1,0 +1,89 @@
+{
+  "name": "deepseek-bridge",
+  "version": "1.0.0",
+  "description": "Claude stays the orchestrator; DeepSeek (via opencode) implements, with the full conversation as context, long-running agentic runs, a goal loop verified by your own check command, and recovery when its output is lost.",
+  "license": "MIT",
+  "userConfig": {
+    "model": {
+      "type": "string",
+      "title": "opencode model",
+      "description": "provider/model passed to `opencode run -m`",
+      "default": "deepseek/deepseek-flash"
+    },
+    "opencodeMcp": {
+      "type": "string",
+      "title": "opencode MCP servers + plugins",
+      "description": "off: the implementer runs without your opencode MCP servers/plugins (about 14x fewer input tokens per call). on: leave them as configured.",
+      "options": [
+        "off",
+        "on"
+      ],
+      "default": "off"
+    },
+    "delegate": {
+      "type": "string",
+      "title": "Tell Claude to delegate",
+      "description": "on: add a short system-prompt section telling the main model to delegate well-scoped implementation work to the implement tool.",
+      "options": [
+        "on",
+        "off"
+      ],
+      "default": "on"
+    },
+    "timeoutMinutes": {
+      "type": "string",
+      "title": "Max minutes per call",
+      "description": "Hard time limit for one implement call. The work stays in the tree and the next call continues the session.",
+      "options": [
+        "30",
+        "60",
+        "120",
+        "240"
+      ],
+      "default": "60"
+    },
+    "idleMinutes": {
+      "type": "string",
+      "title": "Stall limit (minutes)",
+      "description": "Stop a run that has produced no output for this long.",
+      "options": [
+        "5",
+        "15",
+        "30"
+      ],
+      "default": "15"
+    },
+    "scrubEnv": {
+      "type": "string",
+      "title": "Hide secrets from the implementer",
+      "description": "on: before opencode starts, drop environment variables that look like secrets (names containing KEY, TOKEN, SECRET, PASS, CREDENTIAL, COOKIE, AUTH, DSN, PRIVATE; AWS_*; any URL with a password). Best effort against an agent that dumps its environment; it is not a sandbox.",
+      "options": [
+        "on",
+        "off"
+      ],
+      "default": "on"
+    },
+    "webSearch": {
+      "type": "string",
+      "title": "Web search for the implementer",
+      "description": "on: enable opencode's built-in web search (its queries go to Exa, a third party). off: the implementer can still fetch URLs it is given.",
+      "options": [
+        "on",
+        "off"
+      ],
+      "default": "on"
+    }
+  },
+  "author": {
+    "name": "Radvian"
+  },
+  "keywords": [
+    "deepseek",
+    "opencode",
+    "subagent",
+    "orchestration",
+    "delegation"
+  ],
+  "repository": "https://github.com/Radvian/deepseek-bridge",
+  "homepage": "https://github.com/Radvian/deepseek-bridge"
+}
