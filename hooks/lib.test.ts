@@ -1,5 +1,5 @@
 import { test, expect } from 'claude-code/testing'
-import { renderConversation, ingest, newRun, isDeepseekModel, reconcileRows, tailClip, TOOL } from './lib'
+import { renderConversation, ingest, newRun, isDeepseekModel, reconcileRows, tailClip, HELP_TOPICS, stripFrontmatter, versionAtLeast, TOOL } from './lib'
 
 test('conversation strips reminders and clips tool results', async () => {
   const out = renderConversation([
@@ -83,4 +83,15 @@ test('tailClip keeps the end', async () => {
   expect(tailClip('abcdef', 3)).toContain('def')
   expect(tailClip('abcdef', 3)).not.toContain('abc')
   expect(tailClip('abc', 3)).toBe('abc')
+})
+
+test('help topics point at the guide files, and versions compare numerically', async () => {
+  expect(Object.keys(HELP_TOPICS)).toEqual(['overview', 'recipes', 'security', 'troubleshooting', 'install'])
+  expect(HELP_TOPICS.overview).toBe('SKILL.md')
+  expect(stripFrontmatter('---\nname: x\ndescription: y\n---\n# Title\nbody')).toBe('# Title\nbody')
+  expect(stripFrontmatter('# no frontmatter')).toBe('# no frontmatter')
+  expect(versionAtLeast('1.19.4', '1.19')).toBe(true)
+  expect(versionAtLeast('1.9.0', '1.19')).toBe(false)
+  expect(versionAtLeast('v2.0', '1.19.9')).toBe(true)
+  expect(versionAtLeast('1.19', '1.19.1')).toBe(false)
 })

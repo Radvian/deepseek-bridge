@@ -11,6 +11,7 @@ It adds one tool, `mcp__deepseek-bridge__implement`. Claude plans and reviews; w
 - **A goal loop that does not take the model's word for it.** Pass `acceptance_cmd` (a command that exits 0 when the work is done, such as `python3 -m pytest -q`). The bridge runs it itself after each run and sends DeepSeek back with the failing output until it passes. With only `acceptance` (criteria in words) it sends the model back until it says `DONE:` or `BLOCKED:`, and the result says that this was self-reported.
 - **Output that survives a lost pipe.** opencode's output goes to a file the bridge reads as it grows. If nothing arrives, or the run ends with nothing received, the report, actions and cost are rebuilt from opencode's own database, so a finished run is never reported as stalled. A silent run is looked up in the database before it is killed.
 - **Resumable.** A run that hit the time limit, stalled or was recovered keeps its session; the next call continues it.
+- **Built-in guidance for any agent.** Installing the plugin gives every agent the same playbook: a skill (`deepseek-bridge:delegate-to-deepseek`), a `help` tool that serves it by topic, a `doctor` tool that checks the setup and says how to fix each problem, and a short always-on section in the system prompt with the golden rules. See [For AI agents](#for-ai-agents).
 
 ## Requirements
 
@@ -26,7 +27,19 @@ It adds one tool, `mcp__deepseek-bridge__implement`. Claude plans and reviews; w
 
 or from a shell: `claude plugin install deepseek-bridge --marketplace Radvian/deepseek-bridge`.
 
-For unattended runs, allow the tool in your Claude Code settings (`permissions.allow`): `mcp__deepseek-bridge__implement`. Without it Claude Code asks before every call.
+For unattended runs, allow the tools in your Claude Code settings (`permissions.allow`): `mcp__deepseek-bridge__implement`, `mcp__deepseek-bridge__help` and `mcp__deepseek-bridge__doctor`. Without them Claude Code asks before every call. Then run `doctor` once to check the setup.
+
+## For AI agents
+
+The plugin teaches agents how to use it, whatever their memory or capability:
+
+| Piece | What it does |
+| --- | --- |
+| Skill `deepseek-bridge:delegate-to-deepseek` | Auto-listed to every agent. A step-by-step guide: when to delegate, a pre-flight checklist, a task template, how to read each result header, what to do after every call, what never to do. References: `recipes`, `security`, `troubleshooting`, `install-and-config`. |
+| Tool `mcp__deepseek-bridge__help` | The same guide, by topic (`overview`, `recipes`, `security`, `troubleshooting`, `install`, `all`), for agents that do not load skills. |
+| Tool `mcp__deepseek-bridge__doctor` | A PASS/WARN/FAIL checklist (opencode, DeepSeek sign-in, permissions, git, sandbox, settings) with the fix for each line; `live: true` sends one tiny real request. |
+| System-prompt section | Seven golden rules and a pointer to the guide, added to every session (the `delegate` setting turns it off). |
+| [`AGENTS.md`](AGENTS.md) | An install-and-verify procedure for an agent that is setting the plugin up for a user. |
 
 ## Using it
 

@@ -28,6 +28,20 @@ if [ "$MODE" = fake ] || [ "$MODE" = all ]; then
   echo "$out" | grep -q "Allow exactly this command" || { out="$(ask "$d" "$HERE/shims/flag-on-resume" "Call the implement tool exactly once with task 'noop' and acceptance_cmd 'python3 -c \"import sys; sys.exit(0)\"'. Reply with ONLY the tool result text, verbatim.")"; echo "$out" | grep -q "Allow exactly this command"; }; check "a check the permissions do not allow is not run, with the rule to add" $?
 fi
 
+if [ "$MODE" = fake ] || [ "$MODE" = all ]; then
+  d="$(repo)"
+  out="$(ask "$d" - "Without calling any tool, list the names of the skills you can see whose name contains deepseek. Output only the names, comma separated.")"
+  echo "$out" | grep -q "delegate-to-deepseek"; check "the guide skill is listed to agents" $?
+
+  for topic in overview recipes security troubleshooting install; do
+    out="$(ask "$d" - "Call the mcp__deepseek-bridge__help tool once with topic '$topic'. Then reply with only the first markdown heading line of its result, verbatim.")"
+    echo "$out" | grep -qE "^#" ; check "help serves the '$topic' topic" $?
+  done
+
+  out="$(ask "$d" - "Call the mcp__deepseek-bridge__doctor tool once. Reply with ONLY its last line, verbatim.")"
+  echo "$out" | grep -qE "READY|NOT READY"; check "doctor returns a verdict" $?
+fi
+
 if [ "$MODE" = real ] || [ "$MODE" = all ]; then
   d="$(repo)"
   out="$(ask "$d" - "Call the implement tool exactly once with task 'Create notes.txt containing the line alpha'. Reply with ONLY the tool result text, verbatim.")"

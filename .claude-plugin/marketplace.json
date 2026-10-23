@@ -1,11 +1,14 @@
 {
   "name": "deepseek-bridge",
-  "owner": { "name": "Radvian" },
+  "owner": {
+    "name": "Radvian"
+  },
   "plugins": [
     {
       "name": "deepseek-bridge",
       "source": "./",
       "description": "Claude stays the orchestrator; DeepSeek (via opencode) implements, with the full conversation as context, long-running agentic runs, a goal loop verified by your own check command, and recovery when its output is lost."
     }
-  ]
+  ],
+  "description": "Claude Code plugins by Radvian: deepseek-bridge lets Claude orchestrate while DeepSeek implements, via opencode."
 }

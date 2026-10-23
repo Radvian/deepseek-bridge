@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.1.0
+
+- Built-in guidance for any agent: skill `deepseek-bridge:delegate-to-deepseek` (decision rules, pre-flight checklist, task template, result-reading table, post-call review, never-do list) with references for recipes, security, troubleshooting and install; `AGENTS.md`.
+- New tool `help`: serves the guide by topic for agents that do not load skills.
+- New tool `doctor`: PASS/WARN/FAIL setup checklist with a fix per problem; optional live request.
+- The system-prompt section now carries seven golden rules and points to the guide; failed results point to `help`.
+- Tool descriptions point new agents to `help` and `doctor`.
+
 ## 1.0.0
 
 First release.

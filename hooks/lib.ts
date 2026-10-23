@@ -169,3 +169,28 @@ export function reconcileRows(msgRows: any[], partRows: any[]): Reconciled | und
   out.isComplete = last.finish === 'stop' && Boolean(last.completed)
   return out
 }
+
+// The guide the `help` tool serves: one topic per file under the skill.
+export const HELP_DIR = 'skills/delegate-to-deepseek'
+export const HELP_TOPICS: Record<string, string> = {
+  overview: 'SKILL.md',
+  recipes: 'references/recipes.md',
+  security: 'references/security.md',
+  troubleshooting: 'references/troubleshooting.md',
+  install: 'references/install-and-config.md',
+}
+export const HELP_URL = 'https://github.com/Radvian/deepseek-bridge/tree/main/skills/delegate-to-deepseek'
+
+export const stripFrontmatter = (md: string): string => md.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n/, '')
+
+// "1.19.4" is at least "1.19"; non-numeric parts count as 0.
+export function versionAtLeast(version: string, minimum: string): boolean {
+  const num = (v: string) => v.trim().replace(/^v/, '').split('.').map(x => parseInt(x, 10) || 0)
+  const a = num(version)
+  const b = num(minimum)
+  for (let i = 0; i < Math.max(a.length, b.length); i++) {
+    const d = (a[i] ?? 0) - (b[i] ?? 0)
+    if (d !== 0) return d > 0
+  }
+  return true
+}

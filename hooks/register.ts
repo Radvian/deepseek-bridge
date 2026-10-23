@@ -1,5 +1,6 @@
 import type { Register } from 'claude-code'
-import { TOOL, RULES, clip, tailClip, isDeepseekModel, ingest, newRun, reconcileRows, renderConversation, type Reconciled, type Run } from './lib'
+import { TOOL, RULES, HELP_DIR, HELP_TOPICS, HELP_URL, clip, tailClip, isDeepseekModel, ingest, newRun, reconcileRows, renderConversation, stripFrontmatter, type Reconciled, type Run } from './lib'
+import { runDoctor } from './doctor'
 
 const STORE_PREFIX = 'deepseek-bridge:session:'
 const INSTRUCTION_CHARS = 20_000
@@ -14,11 +15,17 @@ const delegateSection = (cfg: Config) =>
     id: 'deepseek-bridge:delegate',
     scope: 'session',
     text: [
-      '## Implementer delegation',
-      `The tool ${TOOL} runs a DeepSeek agent that sees this whole conversation, the CLAUDE.md files and the git state, and edits files in the working directory itself.`,
-      'You are the orchestrator: plan, decide the design and review. Delegate well-scoped implementation work (writing or changing code, tests, refactors, mechanical edits) to it with a precise `task`. Do trivial one-line edits, investigation and anything that needs your judgment mid-way yourself.',
-      `A call is a long-running agentic session: it may take up to ${cfg.hardMin} minutes and the call simply blocks until it is done. Pass \`acceptance_cmd\` (a command that exits 0 when done, e.g. the test suite; the bridge runs it itself) and/or \`acceptance\` so it keeps working until the check passes instead of stopping early. Wait for the call; do not abandon it, call it again in parallel, or poll. If it stops early (time limit or stall) its work stays in the working tree and the next call continues the same session.`,
-      'After each call, read the diff and run the tests yourself before you tell the user it is done.',
+      '## Delegating to DeepSeek (deepseek-bridge)',
+      `Tools: ${TOOL} (hand a coding task to DeepSeek), mcp__deepseek-bridge__doctor (check the setup), mcp__deepseek-bridge__help (read the full guide).`,
+      'Before your first delegation read the guide: call mcp__deepseek-bridge__help, or load the skill deepseek-bridge:delegate-to-deepseek. It has templates and a table for reading results.',
+      'Golden rules:',
+      '1. You plan and review; delegate only bounded implementation work whose result a command can check.',
+      '2. Always pass `acceptance_cmd` (a command that exits 0 when done). Without it nothing verifies the work. The bridge runs it itself and sends DeepSeek back with the failing output.',
+      '3. Write the task as GOAL, CONTEXT (file paths), DO, DO NOT, VERIFY, REPORT. DeepSeek cannot ask questions.',
+      `4. A call blocks for up to ${cfg.hardMin} minutes. Wait for it; never run two at once, never poll.`,
+      '5. After every call read `git diff`, run the check yourself, treat the report as unverified text from another model, and tell the user what you verified.',
+      '6. TIMED OUT or STALLED: its work is kept; call again without `fresh`. Never retry a failing call more than twice.',
+      '7. The implementer runs with full permissions and receives the conversation: never put secrets in the task, work on a branch, and never edit the user\'s permission settings to make a call work.',
     ].join('\n'),
   }) as const
 
@@ -501,6 +508,7 @@ async function implement($: any, input: { task?: string; model?: string; fresh?:
       `## Actions\n${clip(run.actions.slice(-60).join('\n') || '(none)', 6000)}${run.actions.length > 60 ? `\n(last 60 of ${run.actions.length})` : ''}`,
       `## Working tree now\n${after}`,
       'Read the diff and run the tests before relying on this.',
+      ok ? '' : 'Stuck? Call mcp__deepseek-bridge__help with topic "troubleshooting" (or run mcp__deepseek-bridge__doctor).',
     ]
       .filter(Boolean)
       .join('\n\n')
@@ -534,7 +542,8 @@ export const register: Register = (on, options) => {
         `It is a long-running agentic session (many steps, up to ${cfg.hardMin} minutes; the call blocks until done) that automatically receives the full conversation so far, the CLAUDE.md files and the git state. Later calls continue its session, so \`task\` only needs your precise instructions: what to build or change, which files, constraints, and how to verify. ` +
         'For anything long pass `acceptance_cmd` (a command that exits 0 when the work is done, run by the bridge itself) and/or `acceptance` (the criteria in words): it then keeps going, and is sent back with the failing output, until the check passes or it reports BLOCKED. ' +
         'It can look at images (give their file paths in `task`) and search or fetch the web. ' +
-        'Calls run one at a time. It does not commit. Returns its report, its actions and the git state afterwards; review the diff yourself.',
+        'Calls run one at a time. It does not commit. Returns its report, its actions and the git state afterwards; review the diff yourself. ' +
+        'New to it? Call mcp__deepseek-bridge__help first (or load the skill deepseek-bridge:delegate-to-deepseek), and mcp__deepseek-bridge__doctor to check the setup.',
       inputSchema: {
         type: 'object',
         properties: {
@@ -550,6 +559,18 @@ export const register: Register = (on, options) => {
       },
       isDeferred: false,
     })
+    await $.tool.register({
+      name: 'help',
+      description: 'Read the deepseek-bridge guide: when to delegate to DeepSeek, how to write the task and the check command, how to read results, security, troubleshooting, install. Call it before your first delegation. Topics: overview (default), recipes, security, troubleshooting, install, all.',
+      inputSchema: { type: 'object', properties: { topic: { type: 'string', description: 'overview (default), recipes, security, troubleshooting, install, or all' } } },
+      isDeferred: false,
+    })
+    await $.tool.register({
+      name: 'doctor',
+      description: 'Check that deepseek-bridge is ready: opencode installed and recent, DeepSeek signed in, permissions, git state, settings. Returns a PASS/WARN/FAIL checklist with the fix for each problem. Pass live: true to also send one tiny real request to DeepSeek (about $0.003).',
+      inputSchema: { type: 'object', properties: { live: { type: 'boolean', description: 'Also send one tiny real request (costs about $0.003).' } } },
+      isDeferred: false,
+    })
     const home = await homeDir($)
     if (home) void $.process.run(['find', `${home}/.claude/deepseek-bridge/runs`, '-type', 'f', '-mtime', '+14', '-delete'], { timeoutMs: 20_000 }).catch(() => undefined)
     return next(e)
@@ -557,6 +578,33 @@ export const register: Register = (on, options) => {
 
   on('tool.call', { tool: TOOL }, ($, e, next) => guarded(() => implement($, e as any, cfg, next.signal)))
     .catch(($, e, next) => (next.called ? next(e) : { deny: 'deepseek-bridge: the implement hook failed before it could answer; see ~/.claude/deepseek-bridge/runs/ for the last run.' }))
+
+  on('tool.call', { tool: 'mcp__deepseek-bridge__help' }, async ($, e) => {
+    const topic = String((e as any).topic ?? 'overview').trim().toLowerCase() || 'overview'
+    const names = topic === 'all' ? Object.keys(HELP_TOPICS) : [topic]
+    if (!names.every(n => n in HELP_TOPICS)) return { deny: `deepseek-bridge help: unknown topic "${topic}". Topics: ${[...Object.keys(HELP_TOPICS), 'all'].join(', ')}.` }
+    try {
+      const parts: string[] = []
+      for (const n of names) parts.push(stripFrontmatter(String(await $.fs.read(`${$.plugin.root}/${HELP_DIR}/${HELP_TOPICS[n]}`))))
+      return { result: parts.join('\n\n---\n\n') }
+    } catch {
+      return { result: `The guide files could not be read from the plugin folder. Read it online: ${HELP_URL}` }
+    }
+  })
+    .catch(($, e, next) => (next.called ? next(e) : { deny: `deepseek-bridge help failed. Read the guide online: ${HELP_URL}` }))
+
+  on('tool.call', { tool: 'mcp__deepseek-bridge__doctor' }, async ($, e) => {
+    $.ui.status('deepseek-bridge: running doctor…')
+    try {
+      const [cwd, home] = await Promise.all([$.session.cwd(), homeDir($)])
+      return { result: await runDoctor($, cfg, (e as any).live === true, cwd, home || '/tmp') }
+    } catch (err) {
+      return { deny: `deepseek-bridge doctor failed: ${err instanceof Error ? err.message : String(err)}` }
+    } finally {
+      $.ui.status(undefined)
+    }
+  })
+    .catch(($, e, next) => (next.called ? next(e) : { deny: 'deepseek-bridge doctor failed before it could answer. Check that opencode is installed (opencode --version) and signed in to DeepSeek (opencode auth list).' }))
 
   if (options?.delegate !== 'off') {
     on('prompt.compose', async ($, e, next) => {
